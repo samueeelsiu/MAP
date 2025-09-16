@@ -588,7 +588,8 @@ def get_stats():
         'completion_rate': round((visited / (want_to_go + visited) * 100) if (want_to_go + visited) > 0 else 0, 1)
     })
 
+init_db()
+create_default_user()
+
 if __name__ == '__main__':
-    init_db()
-    create_default_user()
     app.run(debug=False, host='0.0.0.0', port=5001)
