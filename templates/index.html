@@ -694,7 +694,8 @@
             if (!localStorage.getItem('hasVisited')) {
                 localStorage.setItem('hasVisited', 'true');
                 setTimeout(() => {
-                    showAchievement('欢迎！', '开启你们的探店之旅', '🎉');
+                    // 使用自定义图片
+                    showAchievement('欢迎！', '美食冒险我来辣', '/static/images/welcome-achievement-icon.png');
                 }, 4000);
             }
         }

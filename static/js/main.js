@@ -884,14 +884,27 @@ async function searchAddress() {
         return;
     }
     
-    // 添加 Boston, MA 以提高搜索准确性
-    const fullAddress = address.includes('Boston') ? address : `${address}, Boston, MA`;
+    // 判断是否是中文地址
+    const isChinese = /[\u4e00-\u9fa5]/.test(address);
+    let fullAddress = address;
+    
+    // 如果是英文地址且不包含城市信息，添加 Boston
+    if (!isChinese && !address.includes(',')) {
+        fullAddress = address.includes('Boston') ? address : `${address}, Boston, MA`;
+    }
     
     try {
         showLoading(true);
         
-        // 使用 Nominatim API (OpenStreetMap 的免费地理编码服务)
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=5`);
+        // 使用 Nominatim API，添加中文支持参数
+        const url = `https://nominatim.openstreetmap.org/search?` + 
+            `format=json&` +
+            `q=${encodeURIComponent(fullAddress)}&` +
+            `limit=5&` +
+            `accept-language=zh-CN,zh,en&` +  // 支持中文
+            `countrycodes=cn,us`;  // 优先搜索中国和美国
+        
+        const response = await fetch(url);
         const results = await response.json();
         
         if (results && results.length > 0) {
@@ -904,7 +917,26 @@ async function searchAddress() {
                 showSearchSuggestions(results);
             }
         } else {
-            showNotification('未找到该地址，请尝试更详细的地址', 'error');
+            // 如果没找到，尝试更模糊的搜索
+            if (isChinese) {
+                // 对中文地址尝试添加"中国"前缀
+                const retryUrl = `https://nominatim.openstreetmap.org/search?` + 
+                    `format=json&` +
+                    `q=${encodeURIComponent('中国 ' + fullAddress)}&` +
+                    `limit=5&` +
+                    `accept-language=zh-CN,zh,en`;
+                
+                const retryResponse = await fetch(retryUrl);
+                const retryResults = await retryResponse.json();
+                
+                if (retryResults && retryResults.length > 0) {
+                    showSearchSuggestions(retryResults);
+                } else {
+                    showNotification('未找到该地址，请尝试更详细的地址（如：广州市天河区天河城）', 'error');
+                }
+            } else {
+                showNotification('未找到该地址，请尝试更详细的地址', 'error');
+            }
         }
     } catch (error) {
         console.error('搜索失败:', error);
@@ -923,13 +955,27 @@ function showSearchSuggestions(results) {
     results.forEach((result, index) => {
         const item = document.createElement('div');
         item.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; transition: background 0.3s;';
+        
+        // 处理显示名称，让中文地址更易读
+        let displayName = result.display_name;
+        // 如果是中文地址，简化显示
+        if (/[\u4e00-\u9fa5]/.test(displayName)) {
+            // 移除重复的国家信息
+            displayName = displayName.replace(/,\s*中国$/, '');
+            displayName = displayName.replace(/,\s*China$/, '');
+        }
+        
         item.innerHTML = `
-            <div style="font-size: 14px; color: #333;">${result.display_name}</div>
+            <div style="font-size: 14px; color: #333;">${displayName}</div>
+            <div style="font-size: 12px; color: #999; margin-top: 2px;">
+                ${result.type ? result.type.replace(/_/g, ' ') : ''}
+            </div>
         `;
+        
         item.onmouseover = () => item.style.background = '#f5f5f5';
         item.onmouseout = () => item.style.background = 'white';
         item.onclick = () => {
-            locateToAddress(result.lat, result.lon, result.display_name);
+            locateToAddress(result.lat, result.lon, displayName);
             suggestionsDiv.style.display = 'none';
             document.getElementById('addressSearch').value = '';
         };
