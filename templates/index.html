@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我们的波士顿地图 💕</title>
+    <title>💕我们的地盘！</title>
     
     <!-- Leaflet 地图库 -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -38,7 +38,7 @@
 
         .avatar-frame {
             width: 180px;
-            height: 180px;
+            height: 220px;
             border-radius: 50%;
             background: linear-gradient(45deg, #f093fb 0%, #f5576c 100%);
             padding: 4px;
@@ -368,7 +368,7 @@
     <div class="user-card-container">
         <!-- 头像容器 -->
         <div class="avatar-container" onclick="toggleUserInfo()">
-            <div class="avatar-frame" style="width: 150px; height: 150px;">
+            <div class="avatar-frame" style="width: 150px; height: 200px;">
                 <!-- 给头像框图片加上 style -->
                 <img src="/static/images/avatar-frame.png" alt="头像框" 
                     style="position: absolute; width: 140%; height: 140%; top: -20%; left: -22%; z-index: 2; pointer-events: none;"
@@ -406,7 +406,12 @@
 
     <!-- 控制面板 -->
     <div class="control-panel" style="position: absolute; top: 20px; right: 20px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 20px; padding: 20px; box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37); z-index: 1000; max-width: 300px;">
-        <h3 style="color: #764ba2; margin-bottom: 15px; font-size: 18px; text-align: center;">探店地图❣️</h3>
+        <h3 style="color: #764ba2; margin-bottom: 15px; font-size: 18px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px;">
+            探店地图
+            <img src="/static/images/title-heart-icon.png" 
+                style="width: 40px; height: 40px;" 
+                onerror="this.style.display='none'; this.parentElement.innerHTML += '❣️'">
+        </h3>
        
         <!-- 地址搜索框 -->
         <div class="search-container" style="margin-bottom: 15px;">
@@ -423,10 +428,27 @@
                         onerror="this.style.display='none'; this.parentElement.innerHTML='🔍'">
                 </button>
             </div>
+
+
+        <!-- 或者用按钮组的方式 -->
+        <div class="quick-jump-buttons" style="margin-bottom: 15px;">
+            <div style="font-size: 8px; color: #666; margin-bottom: 8px;"></div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
+                <button onclick="jumpToLocation('波士顿')" class="jump-btn">波士顿</button>
+                <button onclick="jumpToLocation('北京')" class="jump-btn">北京</button>
+                <button onclick="jumpToLocation('上海')" class="jump-btn">上海</button>
+                <button onclick="jumpToLocation('广州')" class="jump-btn">广州</button>
+                <button onclick="jumpToLocation('成都')" class="jump-btn">成都</button>
+                <button onclick="jumpToLocation('亚特兰大')" class="jump-btn">亚特兰大</button>
+            </div>
+        </div>
+
             <!-- 搜索建议列表 -->
             <div id="searchSuggestions" style="display: none; margin-top: 5px; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto;">
             </div>
         </div>
+
+
 
     <!-- 模式选择器 -->
     <div class="mode-selector" style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -435,7 +457,7 @@
                 style="flex: 1; padding: 10px; border: 2px solid #f093fb; background: linear-gradient(45deg, #f093fb 0%, #f5576c 100%); color: white; border-radius: 10px; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center;">
             <img src="/static/images/view-icon.png" class="mode-icon" 
                 onerror="this.style.display='none'; this.parentElement.innerHTML='👀 查看'"
-                style="width: 20px; height: 20px; margin-right: 5px;">
+                style="width: 30px; height: 30px; margin-right: 5px;">
             <span>查看</span>
         </button>
         
@@ -444,7 +466,7 @@
                 style="flex: 1; padding: 10px; border: 2px solid #f093fb; background: white; border-radius: 10px; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center;">
             <img src="/static/images/heart-icon.png" class="mode-icon" 
                 onerror="this.style.display='none'; this.parentElement.innerHTML='❤️ 想去'"
-                style="width: 20px; height: 20px; margin-right: 5px;">
+                style="width: 30px; height: 30px; margin-right: 5px;">
             <span>想去</span>
         </button>
         
@@ -453,18 +475,35 @@
                 style="flex: 1; padding: 10px; border: 2px solid #f093fb; background: white; border-radius: 10px; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center;">
             <img src="/static/images/paw-icon.png" class="mode-icon" 
                 onerror="this.style.display='none'; this.parentElement.innerHTML='🐾 去过'"
-                style="width: 20px; height: 20px; margin-right: 5px;">
+                style="width: 30px; height: 30px; margin-right: 5px;">
             <span>去过</span>
         </button>
     </div>
         
+
         <!-- 快速查看按钮 -->
         <div class="quick-view-buttons">
-            <button class="view-btn" onclick="showPlacesList('heart')">
-                📋 想去🉐️列表
+            <button class="view-btn" onclick="showPlacesList('heart')" 
+                    style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                <img src="/static/images/list-icon1.png" 
+                    style="width: 30px; height: 30px;" 
+                    onerror="this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin', '📋 ')">
+                想去
+                <img src="/static/images/heart-small-icon.png" 
+                    style="width: 16px; height: 16px;" 
+                    onerror="this.style.display='none'; this.parentElement.insertAdjacentHTML('beforeend', '️')">
+                列表
             </button>
-            <button class="view-btn" onclick="showPlacesList('paw')">
-                📋 去过🉐️列表
+            <button class="view-btn" onclick="showPlacesList('paw')" 
+                    style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                <img src="/static/images/list-icon2.png" 
+                    style="width: 30px; height: 30px;" 
+                    onerror="this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin', '📋 ')">
+                去过
+                <img src="/static/images/paw-small-icon.png" 
+                    style="width: 16px; height: 16px;" 
+                    onerror="this.style.display='none'; this.parentElement.insertAdjacentHTML('beforeend', '️')">
+                列表
             </button>
         </div>
         
@@ -492,13 +531,18 @@
         </div>
 
         <!-- 额外功能按钮 -->
-        <!-- 在控制面板的额外功能按钮部分 -->
         <div style="margin-top: 15px; display: flex; gap: 10px;">
-            <button onclick="exportBackup()" style="flex: 1; padding: 8px; background: #4facfe; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 12px;">
-                💾 备份
+            <button onclick="exportBackup()" style="flex: 1; padding: 8px; background: #4facfe; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                <img src="/static/images/export-icon.png" 
+                    style="width: 25px; height: 25px;" 
+                    onerror="this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin', '💾 ')">
+                备份
             </button>
-            <button onclick="showImportDialog()" style="flex: 1; padding: 8px; background: #00f2fe; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 12px;">
-                📂 恢复
+            <button onclick="showImportDialog()" style="flex: 1; padding: 8px; background: #00f2fe; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                <img src="/static/images/import-icon.png" 
+                    style="width: 25px; height: 25px;" 
+                    onerror="this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin', '📂 ')">
+                恢复
             </button>
         </div>
 

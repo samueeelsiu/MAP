@@ -23,35 +23,58 @@ const CUSTOM_ICONS = {
 // 地图初始化
 // ========================================
 function initMap() {
-    // 创建地图，中心点设在波士顿
+    // 创建地图，默认显示波士顿
     map = L.map('map').setView([42.3601, -71.0589], 13);
     
     // 添加地图图层
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
-        maxZoom: 19
+        maxZoom: 19,
+        minZoom: 2  // 允许缩小看全球
     }).addTo(map);
     
-    // 限制地图范围到波士顿地区
-    const bounds = L.latLngBounds(
-        L.latLng(42.2, -71.2),  // 西南角
-        L.latLng(42.5, -70.9)   // 东北角
-    );
-    map.setMaxBounds(bounds);
-    map.on('drag', function() {
-        map.panInsideBounds(bounds, { animate: false });
-    });
+    // 移除波士顿地区限制
+    // 不再设置 setMaxBounds
     
     // 地图点击事件
     map.on('click', handleMapClick);
-
+    
+    // 弹窗关闭事件
     map.on('popupclose', function(e) {
-        // 如果关闭的是临时标记的弹窗，移除临时标记
-        if (window.tempMarker && e.popup === window.tempMarker.getPopup()) {
+        if (window.tempMarker) {
             map.removeLayer(window.tempMarker);
             window.tempMarker = null;
         }
     });
+}
+
+// ========================================
+// 预设位置
+// ========================================
+const PRESET_LOCATIONS = {
+    '波士顿': { lat: 42.3601, lng: -71.0589, zoom: 13 },
+    '北京': { lat: 39.9042, lng: 116.4074, zoom: 11 },
+    '上海': { lat: 31.2304, lng: 121.4737, zoom: 11 },
+    '广州': { lat: 23.1291, lng: 113.2644, zoom: 11 },
+    '深圳': { lat: 22.5431, lng: 114.0579, zoom: 11 },
+    '成都': { lat: 30.5728, lng: 104.0668, zoom: 11 },
+    '亚特兰大': { lat: 33.7490, lng: -84.3880, zoom: 11 },
+    '纽约': { lat: 40.7128, lng: -74.0060, zoom: 11 },
+    '洛杉矶': { lat: 34.0522, lng: -118.2437, zoom: 11 },
+    '巴黎': { lat: 48.8566, lng: 2.3522, zoom: 12 },
+    '伦敦': { lat: 51.5074, lng: -0.1278, zoom: 12 },
+    '东京': { lat: 35.6762, lng: 139.6503, zoom: 11 }
+};
+
+// ========================================
+// 跳转到指定位置
+// ========================================
+function jumpToLocation(locationName) {
+    const location = PRESET_LOCATIONS[locationName];
+    if (location) {
+        map.setView([location.lat, location.lng], location.zoom);
+        showNotification(`📍 已跳转到${locationName}`, 'info');
+    }
 }
 
 // ========================================
@@ -371,15 +394,11 @@ function createPopupContent(place) {
         ratingHtml = '<div style="margin: 10px 0;">评分: ' + '⭐'.repeat(place.rating) + '</div>';
     }
     
-    let photoHtml = '';
-    if (place.photo_url) {
-        photoHtml = `<img src="${place.photo_url}" alt="照片" style="width:100%; max-width:200px; border-radius:8px; margin:10px 0;">`;
-    }
+
     
     return `
         <div class="popup-content">
             <h3>${place.name}</h3>
-            ${photoHtml}
             ${place.note ? `<p style="margin: 10px 0;">${place.note}</p>` : ''}
             ${ratingHtml}
             <div style="font-size: 12px; color: #999; margin: 10px 0;">
@@ -388,7 +407,6 @@ function createPopupContent(place) {
             </div>
             <div class="popup-actions">
                 <button class="popup-btn" onclick="editPlace(${place.id})">编辑</button>
-                <button class="popup-btn" onclick="uploadPhoto(${place.id})">📸 照片</button>
                 <button class="popup-btn" onclick="viewMessages(${place.id})">💬 留言</button>
                 <button class="popup-btn" onclick="navigateToPlace(${place.lat}, ${place.lng})">🧭 导航</button>
                 <button class="popup-btn secondary" onclick="deletePlace(${place.id})">删除</button>
@@ -572,51 +590,7 @@ function saveToLocalStorage() {
     localStorage.setItem('mapPlaces', JSON.stringify(allPlaces));
 }
 
-// ========================================
-// 上传照片
-// ========================================
-function uploadPhoto(placeId) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    
-    input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        // 检查文件大小
-        if (file.size > 5 * 1024 * 1024) {
-            showNotification('⚠️ 图片不能超过5MB', 'error');
-            return;
-        }
-        
-        const formData = new FormData();
-        formData.append('photo', file);
-        formData.append('place_id', placeId);
-        
-        try {
-            showLoading(true);
-            const response = await fetch(`${API_URL}/api/upload-photo`, {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (response.ok) {
-                showNotification('✅ 照片上传成功！', 'success');
-                loadPlaces();
-            } else {
-                showNotification('❌ 上传失败', 'error');
-            }
-        } catch (error) {
-            console.error('上传失败:', error);
-            showNotification('❌ 上传失败', 'error');
-        } finally {
-            showLoading(false);
-        }
-    };
-    
-    input.click();
-}
+
 
 // ========================================
 // 查看留言
@@ -827,21 +801,80 @@ function showLoading(show) {
 // 创建彩纸特效
 // ========================================
 function createConfetti() {
-    const colors = ['#f093fb', '#f5576c', '#4facfe', '#00f2fe', '#ffd700'];
+    // 从中心爆炸式撒花
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
     
-    for (let i = 0; i < 20; i++) {
-        setTimeout(() => {
-            const confetti = document.createElement('div');
-            confetti.className = 'confetti';
-            confetti.style.left = Math.random() * window.innerWidth + 'px';
-            confetti.style.top = '-10px';
-            confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
-            confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
-            document.body.appendChild(confetti);
+    for (let i = 0; i < 40; i++) {
+        const angle = (Math.PI * 2 * i) / 40;
+        const velocity = 200 + Math.random() * 200;
+        
+        const confetti = document.createElement('img');
+        confetti.src = '/static/images/star.png';
+        confetti.style.cssText = `
+            position: fixed;
+            width: 50px;
+            height: 50px;
+            left: ${centerX}px;
+            top: ${centerY}px;
+            z-index: 9999;
+            pointer-events: none;
+        `;
+        document.body.appendChild(confetti);
+        
+        // 使用 JavaScript 动画实现爆炸效果
+        let x = 0;
+        let y = 0;
+        let rotation = 0;
+        let opacity = 1;
+        let gravity = 0;
+        
+        const animate = () => {
+            x += Math.cos(angle) * velocity * 0.02;
+            y += Math.sin(angle) * velocity * 0.02 + gravity;
+            gravity += 0.5;
+            rotation += 10;
+            opacity -= 0.01;
             
-            setTimeout(() => confetti.remove(), 3000);
-        }, i * 100);
+            confetti.style.transform = `translate(${x}px, ${y}px) rotate(${rotation}deg)`;
+            confetti.style.opacity = opacity;
+            
+            if (opacity > 0) {
+                requestAnimationFrame(animate);
+            } else {
+                confetti.remove();
+            }
+        };
+        
+        requestAnimationFrame(animate);
     }
+}
+
+// 添加成功提示动画
+function showSuccessMessage() {
+    const message = document.createElement('div');
+    message.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(45deg, #f093fb, #f5576c);
+        color: white;
+        padding: 20px 40px;
+        border-radius: 20px;
+        font-size: 24px;
+        font-weight: bold;
+        z-index: 10000;
+        animation: successPop 0.5s ease;
+        box-shadow: 0 10px 40px rgba(240, 147, 251, 0.4);
+    `;
+    message.innerHTML = '✨ 标记成功！';
+    document.body.appendChild(message);
+    
+    setTimeout(() => {
+        message.style.animation = 'fadeOut 0.5s ease';
+        setTimeout(() => message.remove(), 500);
+    }, 2000);
 }
 
 async function searchAddress() {
@@ -1075,7 +1108,23 @@ async function exportBackup() {
             a.href = url;
             a.download = `love-map-backup-${new Date().toISOString().split('T')[0]}.json`;
             a.click();
-            showNotification('💾 备份已下载', 'success');
+            
+            // 创建带图标的通知
+            const notification = document.createElement('div');
+            notification.className = 'notification success';
+            notification.innerHTML = `
+                <img src="/static/images/export-success-icon.png" 
+                     style="width: 20px; height: 20px; vertical-align: middle; margin-right: 5px;"
+                     onerror="this.style.display='none'">
+                <span>备份已下载</span>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => notification.remove(), 500);
+            }, 3000);
         }
     } catch (error) {
         showNotification('备份失败', 'error');
@@ -1129,7 +1178,6 @@ window.saveNewPlace = saveNewPlace;
 window.cancelNewPlace = cancelNewPlace;
 window.editPlace = editPlace;
 window.deletePlace = deletePlace;
-window.uploadPhoto = uploadPhoto;
 window.viewMessages = viewMessages;
 window.showNotification = showNotification;
 window.showPlacesList = showPlacesList;
@@ -1143,3 +1191,4 @@ window.cancelSearchMarker = cancelSearchMarker;
 window.exportBackup = exportBackup;
 window.showImportDialog = showImportDialog;
 window.importBackup = importBackup;
+window.jumpToLocation = jumpToLocation;

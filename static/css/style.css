@@ -889,3 +889,86 @@ body {
     -moz-user-select: none;
     -ms-user-select: none;
 }
+
+/* 撒花飘落动画 */
+@keyframes confettiFall {
+    0% {
+        transform: translateY(-50px) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(calc(100vh + 50px)) rotate(720deg);
+        opacity: 0.3;
+    }
+}
+
+/* 成功消息弹出动画 */
+@keyframes successPop {
+    0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+}
+
+/* 淡出动画 */
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+        transform: translate(-50%, -60%);
+    }
+}
+
+.jump-btn {
+    padding: 6px 10px;
+    background: white;
+    border: 1px solid #f093fb;
+    border-radius: 6px;
+    color: #764ba2;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.jump-btn:hover {
+    background: linear-gradient(45deg, #f093fb, #f5576c);
+    color: white;
+    transform: translateY(-1px);
+}
+
+#locationSelect:focus {
+    outline: none;
+    border-color: #764ba2;
+    box-shadow: 0 0 10px rgba(240, 147, 251, 0.3);
+}
+
+/* 导出导入按钮悬停效果 */
+button[onclick*="export"], 
+button[onclick*="import"] {
+    transition: all 0.3s ease;
+}
+
+button[onclick*="export"]:hover,
+button[onclick*="import"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+button[onclick*="export"] img,
+button[onclick*="import"] img {
+    transition: transform 0.3s ease;
+}
+
+button[onclick*="export"]:hover img,
+button[onclick*="import"]:hover img {
+    transform: scale(1.2);
+}
