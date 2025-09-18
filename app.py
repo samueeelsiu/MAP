@@ -472,6 +472,104 @@ def delete_place(place_id):
     return jsonify({'success': True})
 
 
+# API: 获取地点的留言
+@app.route('/api/places/<int:place_id>/messages', methods=['GET'])
+@login_required
+def get_messages(place_id):
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    
+    # 检查地点是否属于当前用户
+    c.execute("SELECT user_id FROM places WHERE id = ?", (place_id,))
+    place = c.fetchone()
+    if not place or place[0] != session['user_id']:
+        conn.close()
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    # 获取留言
+    c.execute('''
+        SELECT id, author, content, created_at 
+        FROM messages 
+        WHERE place_id = ? 
+        ORDER BY created_at DESC
+        LIMIT 50
+    ''', (place_id,))
+    
+    messages = []
+    for row in c.fetchall():
+        messages.append({
+            'id': row[0],
+            'author': row[1],
+            'content': row[2],
+            'created_at': row[3]
+        })
+    
+    conn.close()
+    return jsonify(messages)
+
+# API: 添加留言
+@app.route('/api/places/<int:place_id>/messages', methods=['POST'])
+@login_required
+def add_message(place_id):
+    data = request.json
+    content = data.get('content', '').strip()
+    
+    if not content:
+        return jsonify({'error': '留言内容不能为空'}), 400
+    
+    if len(content) > 500:
+        return jsonify({'error': '留言内容不能超过500字'}), 400
+    
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    
+    # 检查地点是否存在
+    c.execute("SELECT id FROM places WHERE id = ?", (place_id,))
+    if not c.fetchone():
+        conn.close()
+        return jsonify({'error': '地点不存在'}), 404
+    
+    # 添加留言
+    c.execute('''
+        INSERT INTO messages (place_id, author, content)
+        VALUES (?, ?, ?)
+    ''', (place_id, session.get('display_name', '匿名'), content))
+    
+    message_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    
+    return jsonify({
+        'id': message_id,
+        'success': True,
+        'author': session.get('display_name', '匿名'),
+        'created_at': datetime.now().isoformat()
+    })
+
+# API: 删除留言
+@app.route('/api/messages/<int:message_id>', methods=['DELETE'])
+@login_required
+def delete_message(message_id):
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    
+    # 检查留言是否存在，并且地点属于当前用户
+    c.execute('''
+        SELECT m.id FROM messages m
+        JOIN places p ON m.place_id = p.id
+        WHERE m.id = ? AND p.user_id = ?
+    ''', (message_id, session['user_id']))
+    
+    if not c.fetchone():
+        conn.close()
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    c.execute('DELETE FROM messages WHERE id = ?', (message_id,))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True})
+
 # API: 导出数据
 @app.route('/api/export')
 @login_required

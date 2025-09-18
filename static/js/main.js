@@ -593,10 +593,167 @@ function saveToLocalStorage() {
 
 
 // ========================================
-// 查看留言
+// 查看和管理留言
 // ========================================
 async function viewMessages(placeId) {
-    showNotification('💬 留言功能开发中...', 'info');
+    const place = allPlaces.find(p => p.id === placeId);
+    if (!place) return;
+    
+    try {
+        // 获取留言
+        const response = await fetch(`${API_URL}/api/places/${placeId}/messages`);
+        const messages = await response.json();
+        
+        // 创建留言弹窗
+        const messagesModal = document.createElement('div');
+        messagesModal.className = 'modal';
+        messagesModal.style.display = 'block';
+        messagesModal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2>📝 ${place.name} - 留言板</h2>
+                    <span class="modal-close" onclick="this.parentElement.parentElement.parentElement.remove()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <!-- 添加留言区 -->
+                    <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                        <textarea id="newMessage" placeholder="写下你的留言..." 
+                                style="width: 100%; min-height: 60px; padding: 10px; border: 2px solid #f093fb; border-radius: 8px; resize: vertical;"></textarea>
+                        <button onclick="addMessage(${placeId})" 
+                                style="margin-top: 10px; padding: 10px 20px; background: linear-gradient(45deg, #f093fb, #f5576c); color: white; border: none; border-radius: 8px; cursor: pointer;">
+                            发送留言
+                        </button>
+                    </div>
+                    
+                    <!-- 留言列表 -->
+                    <div id="messagesList">
+                        ${messages.length === 0 ? 
+                            '<div style="text-align: center; color: #999; padding: 40px;">还没有留言，来写第一条吧！</div>' :
+                            messages.map(msg => createMessageHTML(msg)).join('')
+                        }
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(messagesModal);
+        
+        // 点击背景关闭
+        messagesModal.onclick = function(e) {
+            if (e.target === messagesModal) {
+                messagesModal.remove();
+            }
+        };
+        
+        // 保存到全局以便其他函数访问
+        window.currentMessagesModal = messagesModal;
+        window.currentPlaceId = placeId;
+        
+    } catch (error) {
+        console.error('获取留言失败:', error);
+        showNotification('获取留言失败', 'error');
+    }
+}
+
+// 创建留言HTML
+function createMessageHTML(message) {
+    const date = new Date(message.created_at).toLocaleString('zh-CN');
+    return `
+        <div class="message-item" data-message-id="${message.id}" style="margin-bottom: 15px; padding: 15px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-weight: bold; color: #764ba2;">${message.author}</span>
+                <span style="font-size: 12px; color: #999;">${date}</span>
+            </div>
+            <div style="color: #333; line-height: 1.5;">${message.content}</div>
+            <button onclick="deleteMessage(${message.id})" 
+                    style="margin-top: 10px; padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                删除
+            </button>
+        </div>
+    `;
+}
+
+// 添加留言
+async function addMessage(placeId) {
+    const textarea = document.getElementById('newMessage');
+    const content = textarea.value.trim();
+    
+    if (!content) {
+        showNotification('请输入留言内容', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_URL}/api/places/${placeId}/messages`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ content })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            // 清空输入框
+            textarea.value = '';
+            
+            // 添加新留言到列表
+            const messagesList = document.getElementById('messagesList');
+            const newMessageHTML = createMessageHTML({
+                id: result.id,
+                author: result.author,
+                content: content,
+                created_at: result.created_at
+            });
+            
+            // 如果是第一条留言，替换提示文字
+            if (messagesList.innerHTML.includes('还没有留言')) {
+                messagesList.innerHTML = newMessageHTML;
+            } else {
+                messagesList.insertAdjacentHTML('afterbegin', newMessageHTML);
+            }
+            
+            showNotification('✅ 留言已发送', 'success');
+            
+        } else {
+            const error = await response.json();
+            showNotification(error.error || '发送失败', 'error');
+        }
+    } catch (error) {
+        console.error('发送留言失败:', error);
+        showNotification('发送失败，请重试', 'error');
+    }
+}
+
+// 删除留言
+async function deleteMessage(messageId) {
+    if (!confirm('确定要删除这条留言吗？')) return;
+    
+    try {
+        const response = await fetch(`${API_URL}/api/messages/${messageId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            // 从DOM中移除留言
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (messageElement) {
+                messageElement.remove();
+            }
+            
+            // 检查是否还有留言
+            const messagesList = document.getElementById('messagesList');
+            if (messagesList && messagesList.children.length === 0) {
+                messagesList.innerHTML = '<div style="text-align: center; color: #999; padding: 40px;">还没有留言，来写第一条吧！</div>';
+            }
+            
+            showNotification('✅ 留言已删除', 'success');
+        }
+    } catch (error) {
+        console.error('删除留言失败:', error);
+        showNotification('删除失败', 'error');
+    }
 }
 
 // ========================================
@@ -1238,3 +1395,6 @@ window.exportBackup = exportBackup;
 window.showImportDialog = showImportDialog;
 window.importBackup = importBackup;
 window.jumpToLocation = jumpToLocation;
+window.addMessage = addMessage;
+window.deleteMessage = deleteMessage;
+window.createMessageHTML = createMessageHTML;
