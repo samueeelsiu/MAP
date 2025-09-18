@@ -48,6 +48,135 @@ function initMap() {
     });
 }
 
+// 餐厅类型配置
+const RESTAURANT_TYPES = {
+    chinese: { name: '中餐', icon: 'chinese-food-icon.png', color: '#ff6b6b' },
+    western: { name: '西餐', icon: 'western-food-icon.png', color: '#4ecdc4' },
+    japanese: { name: '日料', icon: 'japanese-food-icon.png', color: '#ff8787' },
+    korean: { name: '韩餐', icon: 'korean-food-icon.png', color: '#feca57' },
+    cafe: { name: '咖啡店', icon: 'cafe-icon.png', color: '#8b6f47' },
+    dessert: { name: '甜品', icon: 'dessert-icon.png', color: '#ff9ff3' },
+    hotpot: { name: '火锅', icon: 'hotpot-icon.png', color: '#ee5a6f' },
+    bbq: { name: '烧烤', icon: 'bbq-icon.png', color: '#ff6348' },
+    tea: { name: '茶饮', icon: 'tea-icon.png', color: '#7bed9f' },
+    bar: { name: '酒吧', icon: 'bar-icon.png', color: '#5f27cd' },
+    fastfood: { name: '快餐', icon: 'fastfood-icon.png', color: '#ffa502' },
+    other: { name: '其他', icon: 'other-food-icon.png', color: '#a29bfe' }
+};
+
+// 创建分类图标
+function createCategoryIcon(type, category) {
+    const config = RESTAURANT_TYPES[category] || RESTAURANT_TYPES.other;
+    const iconUrl = `/static/images/food-icons/${config.icon}`;
+    const bgColor = type === 'heart' ? '#ffb3d9' : config.color;
+    
+    return L.divIcon({
+        className: 'custom-marker category-marker',
+        html: `
+            <div style="
+                position: relative;
+                width: 50px; 
+                height: 60px;
+            ">
+                <!-- 底部圆形背景 -->
+                <div style="
+                    position: absolute;
+                    bottom: 0;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 40px; 
+                    height: 40px; 
+                    background: ${bgColor}; 
+                    border-radius: 50% 50% 50% 0;
+                    transform: translateX(-50%) rotate(-45deg);
+                    border: 3px solid white;
+                    box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+                "></div>
+                
+                <!-- 图标 -->
+                <img src="${iconUrl}" 
+                     style="
+                         position: absolute;
+                         top: 5px;
+                         left: 50%;
+                         transform: translateX(-50%);
+                         width: 28px; 
+                         height: 28px;
+                         z-index: 1;
+                     " 
+                     onerror="this.src='/static/images/food-icons/other-food-icon.png'">
+                
+                <!-- 如果是想去的地方，添加小心心 -->
+                ${type === 'heart' ? `
+                    <img src="/static/images/mini-heart.png" 
+                         style="
+                             position: absolute;
+                             top: 0;
+                             right: 0;
+                             width: 16px;
+                             height: 16px;
+                             z-index: 2;
+                         "
+                         onerror="this.style.display='none'">
+                ` : ''}
+            </div>
+        `,
+        iconSize: [50, 60],
+        iconAnchor: [25, 60]
+    });
+}
+
+// ========================================
+// 筛选标记
+// ========================================
+function filterMarkers(category) {
+    console.log('筛选类别:', category);
+    
+    // 遍历所有标记
+    Object.keys(markers).forEach(placeId => {
+        const place = allPlaces.find(p => p.id === parseInt(placeId));
+        const marker = markers[placeId];
+        
+        if (!place || !marker) return;
+        
+        // 如果选择显示全部，或者地点类别匹配
+        if (category === 'all' || place.category === category) {
+            // 显示标记
+            if (!map.hasLayer(marker)) {
+                marker.addTo(map);
+            }
+        } else {
+            // 隐藏标记
+            if (map.hasLayer(marker)) {
+                map.removeLayer(marker);
+            }
+        }
+    });
+    
+    // 更新统计
+    updateFilteredStats(category);
+}
+
+// 更新筛选后的统计
+function updateFilteredStats(category) {
+    let visibleHeartCount = 0;
+    let visiblePawCount = 0;
+    
+    allPlaces.forEach(place => {
+        if (category === 'all' || place.category === category) {
+            if (place.type === 'heart') {
+                visibleHeartCount++;
+            } else if (place.type === 'paw') {
+                visiblePawCount++;
+            }
+        }
+    });
+    
+    // 显示筛选结果提示
+    const filterText = category === 'all' ? '全部' : (RESTAURANT_TYPES[category]?.name || '其他');
+    showNotification(`正在显示: ${filterText} (${visibleHeartCount + visiblePawCount}个地点)`, 'info');
+}
+
 // ========================================
 // 预设位置
 // ========================================
@@ -141,9 +270,20 @@ async function handleMapClick(e) {
                 ${currentMode === 'heart' ? '标记想去的地方' : '标记去过的地方'}
             </div>
             <input type="text" id="placeName" class="popup-input" 
-                   placeholder="给这个地方起个名字..." autofocus>
+                placeholder="给这个地方起个名字..." autofocus>
+            
+            <!-- 餐厅类型选择 -->
+            <div style="margin: 10px 0;">
+                <label style="font-size: 12px; color: #666;">选择类型：</label>
+                <select id="placeCategory" class="popup-input" style="width: 100%; padding: 8px;">
+                    ${Object.entries(RESTAURANT_TYPES).map(([key, value]) => 
+                        `<option value="${key}">${value.name}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            
             <textarea id="placeNote" class="popup-textarea" 
-                      placeholder="添加备注（可选）"></textarea>
+                    placeholder="添加备注（可选）"></textarea>
             ${currentMode === 'paw' ? `
                 <div class="rating-stars" id="ratingStars">
                     <span class="star" data-rating="1">☆</span>
@@ -189,27 +329,26 @@ async function handleMapClick(e) {
 // 保存新地点
 // ========================================
 async function saveNewPlace(lat, lng, type) {
-    // 检查元素是否存在
     const nameElement = document.getElementById('placeName');
     const noteElement = document.getElementById('placeNote');
+    const categoryElement = document.getElementById('placeCategory'); // 新增
     
     if (!nameElement) {
         console.error('找不到placeName元素');
-        showNotification('❌ 页面元素错误，请刷新重试', 'error');
+        showNotification('⌒ 页面元素错误，请刷新重试', 'error');
         return;
     }
     
     const name = nameElement.value || '未命名地点';
     const note = noteElement ? noteElement.value : '';
+    const category = categoryElement ? categoryElement.value : 'other'; // 新增
     let rating = 0;
     
-    // 获取评分（如果是去过的地方）
     if (type === 'paw') {
         const stars = document.querySelectorAll('.star.filled');
         rating = stars.length;
     }
     
-    // 准备数据
     const placeData = {
         lat: lat,
         lng: lng,
@@ -217,6 +356,7 @@ async function saveNewPlace(lat, lng, type) {
         name: name,
         note: note,
         rating: rating,
+        category: category, // 新增
         created_by: currentUser
     };
     
@@ -394,8 +534,6 @@ function createPopupContent(place) {
         ratingHtml = '<div style="margin: 10px 0;">评分: ' + '⭐'.repeat(place.rating) + '</div>';
     }
     
-
-    
     return `
         <div class="popup-content">
             <h3>${place.name}</h3>
@@ -406,6 +544,12 @@ function createPopupContent(place) {
                 时间: ${new Date(place.created_at).toLocaleDateString('zh-CN')}
             </div>
             <div class="popup-actions">
+                ${place.type === 'heart' ? `
+                    <button class="popup-btn" onclick="convertToVisited(${place.id})" 
+                            style="background: linear-gradient(45deg, #00d2ff, #3a7bd5);">
+                        ✓ 已去过
+                    </button>
+                ` : ''}
                 <button class="popup-btn" onclick="editPlace(${place.id})">编辑</button>
                 <button class="popup-btn" onclick="viewMessages(${place.id})">💬 留言</button>
                 <button class="popup-btn" onclick="navigateToPlace(${place.lat}, ${place.lng})">🧭 导航</button>
@@ -413,6 +557,127 @@ function createPopupContent(place) {
             </div>
         </div>
     `;
+}
+
+// ========================================
+// 将想去的地方转换为去过
+// ========================================
+async function convertToVisited(placeId) {
+    const place = allPlaces.find(p => p.id === placeId);
+    if (!place || place.type !== 'heart') return;
+    
+    // 创建评分弹窗
+    const ratingModal = document.createElement('div');
+    ratingModal.className = 'modal';
+    ratingModal.style.display = 'block';
+    ratingModal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <img src="/static/images/congrats-icon.png" 
+                         style="width: 50px; height: 50px;" 
+                         onerror="this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin', '🎉 ')">
+                    打卡成功啦！
+                </h2>
+                <span class="modal-close" onclick="this.parentElement.parentElement.parentElement.remove()">&times;</span>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <h3 style="color: #764ba2; margin-bottom: 20px;">${place.name}</h3>
+                <p style="margin-bottom: 20px;">来打个分吧！：</p>
+                <div class="rating-stars" id="convertRatingStars" style="font-size: 32px; margin-bottom: 20px;">
+                    <span class="star" data-rating="1" onclick="setConvertRating(1)">☆</span>
+                    <span class="star" data-rating="2" onclick="setConvertRating(2)">☆</span>
+                    <span class="star" data-rating="3" onclick="setConvertRating(3)">☆</span>
+                    <span class="star" data-rating="4" onclick="setConvertRating(4)">☆</span>
+                    <span class="star" data-rating="5" onclick="setConvertRating(5)">☆</span>
+                </div>
+                <textarea id="visitNote" placeholder="添加体验感受（可选）" 
+                          style="width: 100%; min-height: 80px; padding: 10px; 
+                                 border: 2px solid #f093fb; border-radius: 8px; 
+                                 margin-bottom: 20px;"></textarea>
+                <button onclick="confirmConvert(${placeId})" 
+                        style="padding: 12px 30px; background: linear-gradient(45deg, #f093fb, #f5576c); 
+                               color: white; border: none; border-radius: 10px; cursor: pointer; 
+                               font-size: 16px;">
+                    确认打卡
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(ratingModal);
+    window.currentConvertRating = 0;
+    window.currentConvertModal = ratingModal;
+}
+
+// 设置转换时的评分
+function setConvertRating(rating) {
+    window.currentConvertRating = rating;
+    const stars = document.querySelectorAll('#convertRatingStars .star');
+    stars.forEach((star, index) => {
+        if (index < rating) {
+            star.textContent = '★';
+            star.style.color = '#ffd700';
+        } else {
+            star.textContent = '☆';
+            star.style.color = '#ddd';
+        }
+    });
+}
+
+// 确认转换
+async function confirmConvert(placeId) {
+    const place = allPlaces.find(p => p.id === placeId);
+    if (!place) return;
+    
+    const visitNote = document.getElementById('visitNote').value;
+    const rating = window.currentConvertRating || 0;
+    
+    try {
+        // 更新地点类型为 paw
+        const response = await fetch(`${API_URL}/api/places/${placeId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type: 'paw',
+                rating: rating,
+                note: place.note + (visitNote ? `\n打卡感受: ${visitNote}` : ''),
+                visited_at: new Date().toISOString()
+            })
+        });
+        
+        if (response.ok) {
+            // 更新本地数据
+            place.type = 'paw';
+            place.rating = rating;
+            if (visitNote) {
+                place.note = place.note + `\n打卡感受: ${visitNote}`;
+            }
+            
+            // 关闭弹窗
+            if (window.currentConvertModal) {
+                window.currentConvertModal.remove();
+            }
+            map.closePopup();
+            
+            // 重新加载地图标记
+            loadPlaces();
+            
+            // 显示成就
+            showAchievement('哟西！', `成功打卡 ${place.name}`, '/static/images/celebration-icon.png');
+            createConfetti();
+            
+            // 播放音效
+            playClickSound();
+            
+            showNotification('✅ 恭喜完成打卡！', 'success');
+        }
+    } catch (error) {
+        console.error('转换失败:', error);
+        showNotification('转换失败，请重试', 'error');
+    }
 }
 
 // ========================================
@@ -800,8 +1065,23 @@ async function updateStats() {
     // 计算统计数据
     const heartCount = allPlaces.filter(p => p.type === 'heart').length;
     const pawCount = allPlaces.filter(p => p.type === 'paw').length;
-    const total = heartCount + pawCount;
-    const completionRate = total > 0 ? Math.round((pawCount / total) * 100) : 0;
+    
+    // 正确的完成率计算：
+    // 方案1：如果想去的地方为0，完成率为100%（没有待完成的）
+    // 方案2：计算"去过"占"想去"的百分比（需要追踪哪些想去的地方已经去过）
+    
+    let completionRate = 0;
+    if (heartCount === 0 && pawCount > 0) {
+        // 没有想去的地方，都去过了
+        completionRate = 100;
+    } else if (heartCount === 0 && pawCount === 0) {
+        // 还没开始标记
+        completionRate = 0;
+    } else if (heartCount > 0) {
+        // 这里简化处理：假设去过的地方越多，越接近完成
+        // 理想情况是追踪具体哪些"想去"的地方变成了"去过"
+        completionRate = Math.min(Math.round((pawCount / heartCount) * 100), 100);
+    }
     
     // 更新显示
     document.getElementById('heartCount').textContent = heartCount;
@@ -1398,3 +1678,8 @@ window.jumpToLocation = jumpToLocation;
 window.addMessage = addMessage;
 window.deleteMessage = deleteMessage;
 window.createMessageHTML = createMessageHTML;
+window.filterMarkers = filterMarkers;
+window.RESTAURANT_TYPES = RESTAURANT_TYPES;
+window.convertToVisited = convertToVisited;
+window.setConvertRating = setConvertRating;
+window.confirmConvert = confirmConvert;

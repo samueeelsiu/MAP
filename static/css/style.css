@@ -973,3 +973,43 @@ button[onclick*="import"]:hover img {
     transform: scale(1.2);
 }
 
+/* 标记动画 */
+.category-marker {
+    animation: dropIn 0.5s ease;
+}
+
+@keyframes dropIn {
+    0% {
+        transform: translateY(-100px) scale(0);
+        opacity: 0;
+    }
+    60% {
+        transform: translateY(10px) scale(1.1);
+    }
+    100% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+/* 悬停效果 */
+.category-marker:hover {
+    animation: wiggle 0.5s ease;
+}
+
+@keyframes wiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-10deg); }
+    75% { transform: rotate(10deg); }
+}
+
+/* 地图容器背景 */
+#map {
+    background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+}
+
+/* 添加可爱的边框 */
+.leaflet-container {
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}

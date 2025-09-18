@@ -488,6 +488,25 @@
         </button>
     </div>
         
+        <!-- 在控制面板中添加 -->
+        <div style="margin-top: 15px; margin-bottom: 15px;">
+            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">筛选类型：</label>
+            <select id="filterCategory" onchange="filterMarkers(this.value)" 
+                    style="width: 100%; padding: 10px; border: 2px solid #f093fb; border-radius: 10px; background: white; cursor: pointer;">
+                <option value="all">🌟 显示全部</option>
+                <option value="chinese">🥟 只看中餐</option>
+                <option value="western">🍔 只看西餐</option>
+                <option value="japanese">🍱 只看日料</option>
+                <option value="korean">🥘 只看韩餐</option>
+                <option value="cafe">☕ 只看咖啡店</option>
+                <option value="dessert">🍰 只看甜品</option>
+                <option value="hotpot">🍲 只看火锅</option>
+                <option value="bbq">🍖 只看烧烤</option>
+                <option value="tea">🍵 只看茶饮</option>
+                <option value="bar">🍺 只看酒吧</option>
+                <option value="other">📍 只看其他</option>
+            </select>
+        </div>
 
         <!-- 快速查看按钮 -->
         <div class="quick-view-buttons">

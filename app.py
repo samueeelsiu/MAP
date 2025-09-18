@@ -42,7 +42,7 @@ def init_db():
         )
     ''')
     
-    # 创建地点表（添加user_id字段）
+    # 创建地点表（添加 category 字段）
     c.execute('''
         CREATE TABLE IF NOT EXISTS places (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,6 +52,7 @@ def init_db():
             name TEXT,
             note TEXT,
             rating INTEGER,
+            category TEXT DEFAULT 'other',
             photo_url TEXT,
             created_by TEXT,
             user_id INTEGER,
@@ -438,7 +439,9 @@ def update_place(place_id):
     data = request.json
     updates = []
     values = []
-    for key in ['name', 'note', 'rating', 'visited_at']:
+    
+    # 支持更新的字段，包括type
+    for key in ['name', 'note', 'rating', 'visited_at', 'type']:
         if key in data:
             updates.append(f"{key} = ?")
             values.append(data[key])
