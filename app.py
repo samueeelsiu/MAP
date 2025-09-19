@@ -361,15 +361,21 @@ def get_user():
         'display_name': session.get('display_name')
     })
 
-# API: 获取所有地点（需要登录）
 @app.route('/api/places', methods=['GET'])
 @login_required
 def get_places():
     conn = sqlite3.connect('database.db')
     c = conn.cursor()
-    # 只获取当前用户的地点
-    c.execute('SELECT * FROM places WHERE user_id = ? ORDER BY created_at DESC', 
-              (session['user_id'],))
+    # 确保获取所有必要字段
+    c.execute('''
+        SELECT id, lat, lng, type, name, note, rating, photo_url, 
+               created_by, user_id, created_at, visited_at, 
+               COALESCE(category, 'other') as category
+        FROM places 
+        WHERE user_id = ? 
+        ORDER BY created_at DESC
+    ''', (session['user_id'],))
+    
     places = []
     for row in c.fetchall():
         places.append({
@@ -381,9 +387,11 @@ def get_places():
             'note': row[5],
             'rating': row[6],
             'photo_url': row[7],
-            'created_by': row[8],
-            'created_at': row[10],
-            'visited_at': row[11]
+            'created_by': row[8] or session.get('display_name', '匿名'),  # 使用默认值
+            'user_id': row[9],
+            'created_at': row[10] or datetime.now().isoformat(),  # 使用默认值
+            'visited_at': row[11],
+            'category': row[12]
         })
     conn.close()
     return jsonify(places)
@@ -430,7 +438,7 @@ def update_place(place_id):
     c = conn.cursor()
     
     # 检查是否是该用户的地点
-    c.execute("SELECT user_id FROM places WHERE id = ?", (place_id,))
+    c.execute("SELECT user_id, created_by, created_at FROM places WHERE id = ?", (place_id,))
     place = c.fetchone()
     if not place or place[0] != session['user_id']:
         conn.close()
@@ -440,15 +448,17 @@ def update_place(place_id):
     updates = []
     values = []
     
-    # 支持更新的字段，包括type
-    for key in ['name', 'note', 'rating', 'visited_at', 'type']:
+    # 支持更新的字段（不包括 created_at 和 created_by）
+    allowed_fields = ['name', 'note', 'rating', 'visited_at', 'type', 'category']
+    for key in allowed_fields:
         if key in data:
             updates.append(f"{key} = ?")
             values.append(data[key])
     
     if updates:
         values.append(place_id)
-        c.execute(f"UPDATE places SET {', '.join(updates)} WHERE id = ?", values)
+        query = f"UPDATE places SET {', '.join(updates)} WHERE id = ?"
+        c.execute(query, values)
         conn.commit()
     
     conn.close()

@@ -634,45 +634,69 @@ async function confirmConvert(placeId) {
     const rating = window.currentConvertRating || 0;
     
     try {
-        // 更新地点类型为 paw
+        // 只更新必要字段，保留原有信息
+        const updateData = {
+            type: 'paw',
+            rating: rating,
+            visited_at: new Date().toISOString()
+        };
+        
+        if (visitNote) {
+            updateData.note = place.note ? 
+                `${place.note}\n打卡感受: ${visitNote}` : 
+                `打卡感受: ${visitNote}`;
+        }
+        
         const response = await fetch(`${API_URL}/api/places/${placeId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                type: 'paw',
-                rating: rating,
-                note: place.note + (visitNote ? `\n打卡感受: ${visitNote}` : ''),
-                visited_at: new Date().toISOString()
-            })
+            body: JSON.stringify(updateData)
         });
         
         if (response.ok) {
-            // 更新本地数据
-            place.type = 'paw';
-            place.rating = rating;
-            if (visitNote) {
-                place.note = place.note + `\n打卡感受: ${visitNote}`;
-            }
-            
             // 关闭弹窗
             if (window.currentConvertModal) {
                 window.currentConvertModal.remove();
             }
             map.closePopup();
             
-            // 重新加载地图标记
-            loadPlaces();
+            // 先移除旧的标记
+            if (markers[placeId]) {
+                map.removeLayer(markers[placeId]);
+                delete markers[placeId];
+            }
+            
+            // 更新本地数据
+            place.type = 'paw';
+            place.rating = rating;
+            place.visited_at = new Date().toISOString();
+            if (visitNote) {
+                place.note = updateData.note;
+            }
+            
+            // 创建新的去过标记（脚印图标）
+            const newMarker = L.marker([place.lat, place.lng], {
+                icon: createCustomIcon('paw')  // 使用脚印图标
+            }).addTo(map);
+            
+            const popupContent = createPopupContent(place);
+            newMarker.bindPopup(popupContent);
+            markers[placeId] = newMarker;
+            
+            // 更新统计
+            updateStats();
+            updateTimeline();
             
             // 显示成就
             showAchievement('哟西！', `成功打卡 ${place.name}`, '/static/images/celebration-icon.png');
             createConfetti();
-            
-            // 播放音效
             playClickSound();
-            
             showNotification('✅ 恭喜完成打卡！', 'success');
+        } else {
+            const error = await response.json();
+            showNotification(error.error || '转换失败', 'error');
         }
     } catch (error) {
         console.error('转换失败:', error);
