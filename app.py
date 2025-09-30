@@ -370,21 +370,14 @@ def get_user():
         'display_name': session.get('display_name')
     })
 
+# API: 获取所有地点（需要登录）
 @app.route('/api/places', methods=['GET'])
 @login_required
 def get_places():
     conn = sqlite3.connect('database.db')
     c = conn.cursor()
     
-    # 先检查表结构，如果没有category字段则添加
-    c.execute("PRAGMA table_info(places)")
-    columns = [column[1] for column in c.fetchall()]
-    
-    if 'category' not in columns:
-        c.execute('ALTER TABLE places ADD COLUMN category TEXT DEFAULT "other"')
-        conn.commit()
-    
-    # 获取地点数据
+    # 确保获取所有必要字段，包括category
     c.execute('''
         SELECT id, lat, lng, type, name, note, rating, photo_url, 
                created_by, user_id, created_at, visited_at
@@ -395,6 +388,14 @@ def get_places():
     
     places = []
     for row in c.fetchall():
+        # 获取category（如果存在）
+        try:
+            c.execute("SELECT category FROM places WHERE id = ?", (row[0],))
+            category_result = c.fetchone()
+            category = category_result[0] if category_result and category_result[0] else 'other'
+        except:
+            category = 'other'
+        
         places.append({
             'id': row[0],
             'lat': row[1],
@@ -408,11 +409,12 @@ def get_places():
             'user_id': row[9],
             'created_at': row[10] or datetime.now().isoformat(),
             'visited_at': row[11],
-            'category': 'other'  # 默认值
+            'category': category  # 添加category字段
         })
     
     conn.close()
     return jsonify(places)
+
 
 # API: 添加新地点（需要登录）
 @app.route('/api/places', methods=['POST'])
@@ -429,9 +431,17 @@ def add_place():
     
     conn = sqlite3.connect('database.db')
     c = conn.cursor()
+    
+    # 确保category列存在
+    c.execute("PRAGMA table_info(places)")
+    columns = [column[1] for column in c.fetchall()]
+    if 'category' not in columns:
+        c.execute('ALTER TABLE places ADD COLUMN category TEXT DEFAULT "other"')
+        conn.commit()
+    
     c.execute('''
-        INSERT INTO places (lat, lng, type, name, note, rating, created_by, user_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO places (lat, lng, type, name, note, rating, category, created_by, user_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         data['lat'],
         data['lng'],
@@ -439,6 +449,7 @@ def add_place():
         data.get('name', ''),
         data.get('note', ''),
         data.get('rating', 0),
+        data.get('category', 'other'),  # 保存category
         session.get('display_name', '匿名'),
         session['user_id']
     ))
@@ -447,6 +458,7 @@ def add_place():
     conn.close()
     
     return jsonify({'id': place_id, 'success': True})
+
 
 # API: 更新地点（需要登录且是创建者）
 @app.route('/api/places/<int:place_id>', methods=['PUT'])
@@ -608,9 +620,10 @@ def export_data():
     conn = sqlite3.connect('database.db')
     c = conn.cursor()
     
-    # 获取用户的所有地点
+    # 获取用户的所有地点（包含category字段）
     c.execute('''
-        SELECT lat, lng, type, name, note, rating, created_at, visited_at 
+        SELECT lat, lng, type, name, note, rating, created_at, visited_at, 
+               COALESCE(category, 'other') as category
         FROM places WHERE user_id = ?
         ORDER BY created_at DESC
     ''', (session['user_id'],))
@@ -625,20 +638,20 @@ def export_data():
             'note': row[4],
             'rating': row[5],
             'created_at': row[6],
-            'visited_at': row[7]
+            'visited_at': row[7],
+            'category': row[8]  # 添加category
         })
     
     conn.close()
     
     # 返回 JSON 文件下载
     response = jsonify({
-        'version': '1.0',
+        'version': '1.1',  # 更新版本号
         'exported_at': datetime.now().isoformat(),
         'user': session.get('display_name'),
         'places': places
     })
     
-    # 设置为文件下载
     response.headers['Content-Disposition'] = f'attachment; filename=love-map-backup-{datetime.now().strftime("%Y%m%d")}.json'
     return response
 
@@ -658,6 +671,13 @@ def import_data():
         conn = sqlite3.connect('database.db')
         c = conn.cursor()
         
+        # 检查是否有category列，如果没有则添加
+        c.execute("PRAGMA table_info(places)")
+        columns = [column[1] for column in c.fetchall()]
+        if 'category' not in columns:
+            c.execute('ALTER TABLE places ADD COLUMN category TEXT DEFAULT "other"')
+            conn.commit()
+        
         imported_count = 0
         for place in places:
             # 检查是否已存在（避免重复）
@@ -668,8 +688,9 @@ def import_data():
             
             if not c.fetchone():
                 c.execute('''
-                    INSERT INTO places (lat, lng, type, name, note, rating, created_by, user_id, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO places (lat, lng, type, name, note, rating, category, 
+                                      created_by, user_id, created_at, visited_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     place['lat'],
                     place['lng'],
@@ -677,9 +698,11 @@ def import_data():
                     place.get('name', ''),
                     place.get('note', ''),
                     place.get('rating', 0),
+                    place.get('category', 'other'),  # 导入category，默认other
                     session.get('display_name'),
                     session['user_id'],
-                    place.get('created_at', datetime.now().isoformat())
+                    place.get('created_at', datetime.now().isoformat()),
+                    place.get('visited_at')
                 ))
                 imported_count += 1
         
@@ -694,7 +717,7 @@ def import_data():
         
     except Exception as e:
         return jsonify({'error': f'导入失败: {str(e)}'}), 500
-
+    
 # API: 获取统计数据
 @app.route('/api/stats', methods=['GET'])
 @login_required
