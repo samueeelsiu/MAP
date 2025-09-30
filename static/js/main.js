@@ -1259,6 +1259,254 @@ function showLoading(show) {
 }
 
 // ========================================
+// 扭蛋机功能
+// ========================================
+let isSpinning = false;
+
+function openGachapon() {
+    // 获取想去的地方
+    const heartPlaces = allPlaces.filter(p => p.type === 'heart');
+    
+    // 获取所有分类
+    const categories = [...new Set(heartPlaces.map(p => p.category || 'other'))];
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="modal-content" style="
+            max-width: 380px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(240, 147, 251, 0.3);
+            box-shadow: 0 20px 60px rgba(118, 75, 162, 0.3);
+        ">
+            <div class="modal-header" style="
+                background: linear-gradient(45deg, rgba(240, 147, 251, 0.8), rgba(245, 87, 108, 0.8));
+                border-bottom: none;
+                padding: 15px 20px;
+            ">
+                <h2 style="color: white; text-align: center; width: 100%; font-size: 20px;">
+                    🐾 修勾扭蛋机 🐾
+                </h2>
+                <span class="modal-close" style="color: white;" 
+                      onclick="this.parentElement.parentElement.parentElement.remove()">&times;</span>
+            </div>
+            <div class="modal-body" style="
+                text-align: center; 
+                padding: 15px;
+                background: transparent;
+            ">
+                <!-- 扭蛋机主体 -->
+                <div id="gachaponMachine" style="position: relative; margin: 0 auto;">
+                    <img id="machineImage" src="/static/images/gachapon-idle.png" 
+                         style="width: 230px; height: 288px;"
+                         onerror="this.style.display='none'">
+                    
+                    <!-- 扭蛋结果显示区 - 这部分很重要，不能删除 -->
+                    <div id="capsuleResult" style="display: none; 
+                                                   position: absolute; 
+                                                   bottom: -25px; 
+                                                   left: 50%; 
+                                                   transform: translateX(-50%);">
+                        <img src="/static/images/capsule-gold.png" 
+                             style="width: 60px; height: 60px; 
+                                    animation: bounceIn 0.5s ease;">
+                    </div>
+                </div>
+                
+                <!-- 选择范围 -->
+                <div style="margin: 15px 0;">
+                    <label style="color: #764ba2; font-size: 13px; font-weight: bold;">选择范围：</label>
+                    <select id="gachaponCategory" 
+                            style="
+                                padding: 6px 12px; 
+                                border-radius: 20px; 
+                                border: 2px solid rgba(240, 147, 251, 0.5);
+                                background: rgba(255, 255, 255, 0.7);
+                                color: #764ba2;
+                                cursor: pointer;
+                                font-size: 13px;
+                            ">
+                        <option value="all">🎲 所有想去的地方 (${heartPlaces.length})</option>
+                        ${categories.map(cat => {
+                            const count = heartPlaces.filter(p => (p.category || 'other') === cat).length;
+                            const name = RESTAURANT_TYPES[cat]?.name || '其他';
+                            return `<option value="${cat}">
+                                ${RESTAURANT_TYPES[cat]?.name || '其他'} (${count})
+                            </option>`;
+                        }).join('')}
+                    </select>
+                </div>
+                
+                <!-- 扭蛋按钮 -->
+                <button id="spinButton" onclick="spinGachapon()" 
+                        style="
+                            padding: 12px 35px; 
+                            background: linear-gradient(45deg, #f093fb, #f5576c);
+                            color: white; 
+                            border: none; 
+                            border-radius: 25px;
+                            font-size: 16px;
+                            font-weight: bold;
+                            cursor: pointer;
+                            box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
+                            transition: all 0.3s ease;
+                        ">
+                    🎯 扭一个！
+                </button>
+                
+                <!-- 结果显示区 -->
+                <div id="gachaponResult" style="
+                    display: none; 
+                    margin-top: 15px; 
+                    padding: 15px;
+                    background: rgba(255, 255, 255, 0.9);
+                    border-radius: 12px;
+                    border: 1px solid rgba(240, 147, 251, 0.3);
+                ">
+                    <h3 id="resultTitle" style="color: #764ba2; margin-bottom: 8px; font-size: 16px;"></h3>
+                    <p id="resultNote" style="color: #666; margin-bottom: 12px; font-size: 13px;"></p>
+                    <button onclick="navigateToGachaponResult()" 
+                            style="
+                                padding: 8px 16px;
+                                background: linear-gradient(45deg, #4facfe, #00f2fe);
+                                color: white;
+                                border: none;
+                                border-radius: 8px;
+                                cursor: pointer;
+                                font-size: 13px;
+                            ">
+                        📍 在地图上查看
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    window.currentGachaponModal = modal;
+    window.currentGachaponResult = null;
+}
+
+// 扭蛋动画
+function spinGachapon() {
+    if (isSpinning) return;
+    
+    const category = document.getElementById('gachaponCategory').value;
+    let availablePlaces = allPlaces.filter(p => p.type === 'heart');
+    
+    if (category !== 'all') {
+        availablePlaces = availablePlaces.filter(p => (p.category || 'other') === category);
+    }
+    
+    if (availablePlaces.length === 0) {
+        showGachaponEmpty();
+        return;
+    }
+    
+    isSpinning = true;
+    const spinButton = document.getElementById('spinButton');
+    spinButton.disabled = true;
+    spinButton.textContent = '扭动中...';
+    
+    // 切换到转动动画
+    const machineImage = document.getElementById('machineImage');
+    machineImage.src = '/static/images/gachapon-spinning.gif';
+    
+    // 播放音效
+    playClickSound();
+    
+    // 3秒后显示结果
+    setTimeout(() => {
+        // 随机选择一个地点
+        const randomIndex = Math.floor(Math.random() * availablePlaces.length);
+        const selectedPlace = availablePlaces[randomIndex];
+        
+        // 恢复静止状态
+        machineImage.src = '/static/images/gachapon-idle.png';
+        
+        // 显示扭蛋球（随机颜色）
+        const capsuleResult = document.getElementById('capsuleResult');
+        const capsuleColors = ['red', 'blue', 'gold'];
+        const randomColor = capsuleColors[Math.floor(Math.random() * capsuleColors.length)];
+        
+        // 更新扭蛋球图片
+        capsuleResult.innerHTML = `
+            <img src="/static/images/capsule-${randomColor}.png" 
+                style="width: 60px; height: 60px; 
+                        animation: bounceIn 0.5s ease;"
+                onerror="console.error('Failed to load:', this.src); this.style.display='none';">
+        `;
+        capsuleResult.style.display = 'block';
+        
+        // 显示结果
+        showGachaponResult(selectedPlace);
+        
+        isSpinning = false;
+        spinButton.disabled = false;
+        spinButton.textContent = '🎯 再来！！';
+    }, 7000); // 或者你需要的时长
+}
+
+// 显示扭蛋结果
+function showGachaponResult(place) {
+    window.currentGachaponResult = place;
+    
+    const resultDiv = document.getElementById('gachaponResult');
+    const resultTitle = document.getElementById('resultTitle');
+    const resultNote = document.getElementById('resultNote');
+    
+    resultTitle.textContent = `🎊 ${place.name}`;
+    resultNote.textContent = place.note || '就是这里！快去探店吧～';
+    
+    resultDiv.style.display = 'block';
+    resultDiv.style.animation = 'fadeIn 0.5s ease';
+    
+    // 播放成功音效
+    showNotification(`✨ 今天就去 ${place.name} 吧！`, 'love');
+}
+
+// 显示空结果
+function showGachaponEmpty() {
+    const resultDiv = document.getElementById('gachaponResult');
+    const resultTitle = document.getElementById('resultTitle');
+    const resultNote = document.getElementById('resultNote');
+    
+    resultTitle.textContent = '📝 请添加心愿啦～';
+    resultNote.textContent = '还没有想去的地方呢，快去地图上标记几个吧！';
+    
+    resultDiv.style.display = 'block';
+    document.querySelector('[onclick="navigateToGachaponResult()"]').style.display = 'none';
+}
+
+// 导航到扭蛋结果
+function navigateToGachaponResult() {
+    if (!window.currentGachaponResult) return;
+    
+    const place = window.currentGachaponResult;
+    
+    // 关闭扭蛋机弹窗
+    if (window.currentGachaponModal) {
+        window.currentGachaponModal.remove();
+    }
+    
+    // 定位到地点
+    map.setView([place.lat, place.lng], 16);
+    
+    // 打开弹窗
+    if (markers[place.id]) {
+        markers[place.id].openPopup();
+    }
+    
+    // 添加动画效果
+    if (markers[place.id] && markers[place.id]._icon) {
+        const icon = markers[place.id]._icon;
+        icon.style.animation = 'pulse 2s ease infinite';
+    }
+}
+
+// ========================================
 // 创建彩纸特效
 // ========================================
 function createConfetti() {

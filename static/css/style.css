@@ -1013,3 +1013,107 @@ button[onclick*="import"]:hover img {
     border-radius: 20px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
 }
+
+/* 扭蛋机动画 */
+@keyframes bounceIn {
+    0% {
+        transform: translateX(-50%) scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: translateX(-50%) scale(1.2);
+    }
+    100% {
+        transform: translateX(-50%) scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+
+/* 扭蛋机按钮悬停效果 */
+button[onclick="openGachapon()"]:hover {
+    transform: scale(1.1) rotate(5deg);
+}
+
+/* 扭蛋机漂浮动画 */
+@keyframes float {
+    0%, 100% { 
+        transform: translateY(0px) rotate(0deg); 
+    }
+    25% { 
+        transform: translateY(-10px) rotate(-5deg); 
+    }
+    75% { 
+        transform: translateY(10px) rotate(5deg); 
+    }
+}
+
+/* 闪光效果 */
+@keyframes sparkle {
+    0%, 100% { 
+        opacity: 0;
+        transform: scale(0);
+    }
+    50% { 
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* 扭蛋机按钮悬停效果 */
+button[onclick="openGachapon()"]:hover {
+    transform: scale(1.15) !important;
+    background: linear-gradient(45deg, #ff9a9e, #fad0c4) !important;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    /* 在小屏幕上，扭蛋机移到底部 */
+    div[style*="right: 340px"] {
+        right: auto !important;
+        left: 20px !important;
+        top: auto !important;
+        bottom: 100px !important;
+        transform: none !important;
+    }
+}
+
+/* 美食飘落动画 */
+@keyframes foodFall {
+    0% {
+        transform: translateY(-50px);
+    }
+    100% {
+        transform: translateY(calc(100vh + 50px));
+    }
+}
+
+@keyframes foodRotate {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* 美食图标样式 */
+#foodRainContainer img {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    transition: opacity 0.3s ease;
+}
+
+/* 性能优化：使用 GPU 加速 */
+#foodRainContainer {
+    will-change: transform;
+    transform: translateZ(0);
+}

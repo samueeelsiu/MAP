@@ -361,6 +361,10 @@
     </style>
 </head>
 <body>
+
+    <!-- 美食飘落效果容器 -->
+    <div id="foodRainContainer" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 500; overflow: hidden;"></div>
+    
     <!-- 地图容器 -->
     <div id="map" style="height: 100vh; width: 100vw;"></div>
 
@@ -421,6 +425,48 @@
                 onerror="this.style.display='none'; this.parentElement.innerHTML += '❣️'">
         </h3>
        
+
+        <!-- 扭蛋机按钮（在头像下方） -->
+        <div style="position: absolute; 
+                    top: 350px; 
+                    left: -1150px; 
+                    z-index: 999;">
+            <div style="position: relative;">
+                <!-- 漂浮动画容器 -->
+                <div style="animation: float 3s ease-in-out infinite;">
+                    <button onclick="openGachapon()" 
+                            style="width: 80px; 
+                                height: 80px; 
+                                border-radius: 50%; 
+                                background: linear-gradient(45deg, #ffd89b, #19547b);
+                                border: 4px solid white; 
+                                cursor: pointer; 
+                                box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+                                transition: transform 0.3s ease; 
+                                padding: 0;
+                                display: flex; 
+                                align-items: center; 
+                                justify-content: center;
+                                position: relative;">
+                        <img src="/static/images/gachapon-icon.png" 
+                            style="width: 60px; height: 60px;" 
+                            onerror="this.parentElement.innerHTML='🎰'">
+                        
+                        <!-- 闪光效果 -->
+                        <div style="position: absolute; 
+                                    top: -5px; 
+                                    right: -5px; 
+                                    width: 20px; 
+                                    height: 20px; 
+                                    background: radial-gradient(circle, #fff, transparent);
+                                    animation: sparkle 2s ease-in-out infinite;">
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
         <!-- 地址搜索框 -->
         <div class="search-container" style="margin-bottom: 15px;">
             <div style="display: flex; gap: 5px;">
@@ -508,6 +554,8 @@
             </select>
         </div>
 
+
+
         <!-- 快速查看按钮 -->
         <div class="quick-view-buttons">
             <button class="view-btn" onclick="showPlacesList('heart')" 
@@ -582,6 +630,7 @@
                 恢复
             </button>
         </div>
+
 
         <!-- 添加隐藏的文件输入 -->
         <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importBackup(this)">
@@ -665,6 +714,9 @@
             
             // 检查成就
             checkFirstTimeUser();
+
+            // 启动美食飘落效果
+            createFoodRain();
             
             // 自动播放背景音乐（新增）
             setTimeout(() => {
@@ -862,6 +914,81 @@
             }
         `;
         document.head.appendChild(style);
+
+        // 美食飘落效果
+        function createFoodRain() {
+            console.log('启动美食飘落效果');
+            const container = document.getElementById('foodRainContainer');
+            
+            if (!container) {
+                console.error('找不到飘落容器');
+                return;
+            }
+            
+            const foodIcons = [
+                '/static/images/food-rain-1.png',
+                '/static/images/food-rain-2.png',
+                '/static/images/food-rain-3.png',
+                '/static/images/food-rain-4.png',
+                '/static/images/food-rain-5.png'
+            ];
+            
+            // 使用emoji作为后备
+            const foodEmojis = ['🍔', '🍕', '🍜', '🍱', '🍰'];
+            
+            function createFood() {
+                const food = document.createElement('div');
+                const randomIndex = Math.floor(Math.random() * foodIcons.length);
+                
+                // 先尝试使用图片
+                const img = document.createElement('img');
+                img.src = foodIcons[randomIndex];
+                img.style.width = '100%';
+                img.style.height = '100%';
+                
+                // 如果图片加载失败，使用emoji
+                img.onerror = function() {
+                    food.innerHTML = foodEmojis[randomIndex];
+                    food.style.fontSize = `${20 + Math.random() * 20}px`;
+                };
+                
+                food.appendChild(img);
+                
+                // 随机属性
+                const size = 20 + Math.random() * 20;  // 20-40px
+                const duration = 8 + Math.random() * 7;  // 8-15秒
+                const startPosition = Math.random() * 100;  // 0-100%
+                const delay = Math.random() * 5;  // 0-5秒延迟
+                
+                food.style.cssText = `
+                    position: absolute;
+                    width: ${size}px;
+                    height: ${size}px;
+                    left: ${startPosition}%;
+                    top: -50px;
+                    opacity: ${0.7 + Math.random() * 0.8};
+                    pointer-events: none;
+                    animation: foodFall ${duration}s linear ${delay}s infinite;
+                    z-index: 500;
+                `;
+                
+                container.appendChild(food);
+                
+                // 定期清理旧元素避免内存泄漏
+                setTimeout(() => {
+                    if (food.parentNode) {
+                        food.remove();
+                    }
+                    createFood();  // 创建新的食物继续循环
+                }, (duration + delay) * 1000);
+            }
+            
+            // 初始创建15个美食
+            for (let i = 0; i < 15; i++) {
+                setTimeout(() => createFood(), i * 300);
+            }
+        }
+
     </script>
 </body>
 </html>

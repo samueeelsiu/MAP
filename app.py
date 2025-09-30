@@ -126,7 +126,6 @@ def login_page():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>登录 - 我们的探店地图</title>
-        <!-- 替换 app.py 中登录页面的 <style> 部分 -->
         <style>
             body {
                 margin: 0;
@@ -135,14 +134,11 @@ def login_page():
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                /* 使用本地图片作为背景 */
                 background: url('/static/images/login-bg.png') center/cover no-repeat;
-                /* 添加一个半透明遮罩层，让文字更清晰 */
                 position: relative;
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             }
             
-            /* 可选：添加遮罩层效果 */
             body::before {
                 content: '';
                 position: absolute;
@@ -150,7 +146,7 @@ def login_page():
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.3); /* 黑色半透明遮罩 */
+                background: rgba(0, 0, 0, 0.3);
                 z-index: 1;
             }
             
@@ -161,10 +157,8 @@ def login_page():
                 box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
                 width: 100%;
                 max-width: 400px;
-                /* 确保登录框在遮罩层上方 */
                 position: relative;
                 z-index: 2;
-                /* 添加毛玻璃效果 */
                 backdrop-filter: blur(10px);
             }
             
@@ -179,8 +173,11 @@ def login_page():
                 text-align: center;
                 font-size: 60px;
                 margin-bottom: 20px;
-                /* 添加动画效果 */
                 animation: heartbeat 1.5s ease-in-out infinite;
+            }
+            
+            .login-emoji img {
+                transition: all 0.3s ease;
             }
             
             @keyframes heartbeat {
@@ -248,7 +245,6 @@ def login_page():
                 75% { transform: translateX(10px); }
             }
             
-            /* 响应式设计 */
             @media (max-width: 500px) {
                 .login-container {
                     margin: 20px;
@@ -260,7 +256,9 @@ def login_page():
     <body>
         <div class="login-container">
             <div class="login-emoji">
-                <img src="/static/images/title_log.png" style="width: 80px; height: 80px; border-radius: 10px;">
+                <img id="loginIcon" 
+                     src="/static/images/title_log.png" 
+                     style="width: 120px; height: 120px; border-radius: 10px;">
             </div>
             <h2 class="login-title">欢迎来到秘密基地哇～</h2>
             <form id="loginForm">
@@ -270,7 +268,9 @@ def login_page():
                 </div>
                 <div class="form-group">
                     <label class="form-label">密码</label>
-                    <input type="password" class="form-input" id="password" required>
+                    <input type="password" class="form-input" id="password" required
+                           onfocus="changeLoginImage(true)"
+                           onblur="changeLoginImage(false)">
                 </div>
                 <button type="submit" class="login-btn">登录</button>
                 <div class="error-msg" id="errorMsg"></div>
@@ -278,6 +278,15 @@ def login_page():
         </div>
         
         <script>
+            function changeLoginImage(isFocused) {
+                const loginIcon = document.getElementById('loginIcon');
+                if (isFocused) {
+                    loginIcon.src = '/static/images/login-hide-eyes.png';
+                } else {
+                    loginIcon.src = '/static/images/title_log.png';
+                }
+            }
+            
             document.getElementById('loginForm').onsubmit = async (e) => {
                 e.preventDefault();
                 const username = document.getElementById('username').value;
@@ -366,11 +375,19 @@ def get_user():
 def get_places():
     conn = sqlite3.connect('database.db')
     c = conn.cursor()
-    # 确保获取所有必要字段
+    
+    # 先检查表结构，如果没有category字段则添加
+    c.execute("PRAGMA table_info(places)")
+    columns = [column[1] for column in c.fetchall()]
+    
+    if 'category' not in columns:
+        c.execute('ALTER TABLE places ADD COLUMN category TEXT DEFAULT "other"')
+        conn.commit()
+    
+    # 获取地点数据
     c.execute('''
         SELECT id, lat, lng, type, name, note, rating, photo_url, 
-               created_by, user_id, created_at, visited_at, 
-               COALESCE(category, 'other') as category
+               created_by, user_id, created_at, visited_at
         FROM places 
         WHERE user_id = ? 
         ORDER BY created_at DESC
@@ -387,12 +404,13 @@ def get_places():
             'note': row[5],
             'rating': row[6],
             'photo_url': row[7],
-            'created_by': row[8] or session.get('display_name', '匿名'),  # 使用默认值
+            'created_by': row[8] or session.get('display_name', '匿名'),
             'user_id': row[9],
-            'created_at': row[10] or datetime.now().isoformat(),  # 使用默认值
+            'created_at': row[10] or datetime.now().isoformat(),
             'visited_at': row[11],
-            'category': row[12]
+            'category': 'other'  # 默认值
         })
+    
     conn.close()
     return jsonify(places)
 
