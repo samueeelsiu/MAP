@@ -1446,7 +1446,7 @@ function spinGachapon() {
         isSpinning = false;
         spinButton.disabled = false;
         spinButton.textContent = '🎯 再来！！';
-    }, 7000); // 或者你需要的时长
+    }, 7800); // 或者你需要的时长
 }
 
 // 显示扭蛋结果

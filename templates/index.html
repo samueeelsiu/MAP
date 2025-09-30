@@ -661,14 +661,20 @@
     </div>
 
     <!-- 时间轴 -->
-    <div class="timeline" id="timeline" style="position: absolute; bottom: 20px; right: 20px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 15px; padding: 15px; z-index: 1000; max-width: 250px; max-height: 200px; overflow-y: auto;">
-        <h4 style="margin-bottom: 10px; color: #764ba2; display: flex; align-items: center; gap: 5px;">
-            <img src="/static/images/calendar-icon.png" 
-                style="width: 20px; height: 20px;" 
-                onerror="this.style.display='none'; this.parentElement.insertBefore(document.createTextNode('📅 '), this.parentElement.firstChild)">
-            最近标记
+    <div class="timeline" id="timeline" style="position: absolute; bottom: 20px; right: 20px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 15px; padding: 15px; z-index: 1000; max-width: 250px;">
+        <h4 style="margin-bottom: 10px; color: #764ba2; display: flex; align-items: center; justify-content: space-between; gap: 5px;">
+            <span style="display: flex; align-items: center; gap: 5px;">
+                <img src="/static/images/calendar-icon.png" 
+                    style="width: 20px; height: 20px;" 
+                    onerror="this.style.display='none'; this.parentElement.insertBefore(document.createTextNode('📅 '), this.parentElement.firstChild)">
+                最近标记
+            </span>
+            <button onclick="toggleTimeline()" 
+                    style="background: none; border: none; cursor: pointer; font-size: 16px; color: #764ba2; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">
+                <span id="timelineToggle">▼</span>
+            </button>
         </h4>
-        <div id="timelineContent">
+        <div id="timelineContent" style="max-height: 150px; overflow-y: auto; transition: all 0.3s ease;">
             <div style="color: #999; font-size: 12px;">暂无标记</div>
         </div>
     </div>
@@ -718,6 +724,9 @@
             // 启动美食飘落效果
             createFoodRain();
             
+            // 让时间轴可拖动（添加这行）
+            makeTimelineDraggable();
+
             // 自动播放背景音乐（新增）
             setTimeout(() => {
                 const music = document.getElementById('bgMusic');
@@ -914,6 +923,110 @@
             }
         `;
         document.head.appendChild(style);
+
+        // 时间轴展开/收缩功能
+        let timelineExpanded = true;
+
+        function toggleTimeline() {
+            const content = document.getElementById('timelineContent');
+            const toggle = document.getElementById('timelineToggle');
+            const timeline = document.getElementById('timeline');
+            
+            timelineExpanded = !timelineExpanded;
+            
+            if (timelineExpanded) {
+                // 展开
+                content.style.maxHeight = '150px';
+                content.style.opacity = '1';
+                content.style.marginTop = '0';
+                toggle.textContent = '▼';
+            } else {
+                // 收缩
+                content.style.maxHeight = '0';
+                content.style.opacity = '0';
+                content.style.marginTop = '-10px';
+                toggle.textContent = '▶';
+            }
+        }
+
+        // 让时间轴可拖动
+        function makeTimelineDraggable() {
+            const timeline = document.getElementById('timeline');
+            let isDragging = false;
+            let startX;
+            let startY;
+            let initialRight = 20;  // 初始right值
+            let initialBottom = 20; // 初始bottom值
+            
+            const dragStart = (e) => {
+                // 如果点击的是按钮或链接，不触发拖动
+                if (e.target.closest('button') || e.target.closest('.timeline-item')) return;
+                
+                // 只有点击标题栏才能拖动
+                if (!e.target.closest('h4')) return;
+                
+                isDragging = true;
+                
+                // 记录开始位置
+                startX = e.type === "touchstart" ? e.touches[0].clientX : e.clientX;
+                startY = e.type === "touchstart" ? e.touches[0].clientY : e.clientY;
+                
+                // 获取当前的right和bottom值
+                const rect = timeline.getBoundingClientRect();
+                initialRight = window.innerWidth - rect.right;
+                initialBottom = window.innerHeight - rect.bottom;
+                
+                timeline.style.cursor = 'grabbing';
+                e.preventDefault();
+            };
+            
+            const drag = (e) => {
+                if (!isDragging) return;
+                
+                e.preventDefault();
+                
+                // 获取当前鼠标位置
+                const currentX = e.type === "touchmove" ? e.touches[0].clientX : e.clientX;
+                const currentY = e.type === "touchmove" ? e.touches[0].clientY : e.clientY;
+                
+                // 计算移动距离
+                const deltaX = currentX - startX;
+                const deltaY = currentY - startY;
+                
+                // 计算新位置
+                const newRight = initialRight - deltaX;
+                const newBottom = initialBottom - deltaY;
+                
+                // 确保不会拖出屏幕
+                const maxRight = window.innerWidth - 100;
+                const maxBottom = window.innerHeight - 50;
+                
+                timeline.style.right = Math.min(Math.max(0, newRight), maxRight) + 'px';
+                timeline.style.bottom = Math.min(Math.max(0, newBottom), maxBottom) + 'px';
+            };
+            
+            const dragEnd = (e) => {
+                isDragging = false;
+                timeline.style.cursor = 'move';
+            };
+            
+            // 鼠标事件
+            timeline.addEventListener('mousedown', dragStart);
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', dragEnd);
+            
+            // 触摸事件
+            timeline.addEventListener('touchstart', dragStart);
+            document.addEventListener('touchmove', drag);
+            document.addEventListener('touchend', dragEnd);
+            
+            // 设置标题栏样式
+            const header = timeline.querySelector('h4');
+            if (header) {
+                header.style.cursor = 'move';
+                header.title = '拖动移动位置';
+            }
+        }
 
         // 美食飘落效果
         function createFoodRain() {
