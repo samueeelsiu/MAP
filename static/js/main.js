@@ -1755,6 +1755,26 @@ function markAsWantToGo(lat, lng, address) {
             <div class="popup-title">标记想去的地方</div>
             <input type="text" id="placeName" class="popup-input" 
                    value="${safeName}" placeholder="给这个地方起个名字...">
+            
+            <!-- 添加餐厅类型选择 -->
+            <div style="margin: 10px 0;">
+                <label style="font-size: 12px; color: #666;">选择类型：</label>
+                <select id="placeCategory" class="popup-input" style="width: 100%; padding: 8px;">
+                    <option value="other">其他</option>
+                    <option value="chinese">中餐</option>
+                    <option value="western">西餐</option>
+                    <option value="japanese">日料</option>
+                    <option value="korean">韩餐</option>
+                    <option value="cafe">咖啡店</option>
+                    <option value="dessert">甜品</option>
+                    <option value="hotpot">火锅</option>
+                    <option value="bbq">烧烤</option>
+                    <option value="tea">茶饮</option>
+                    <option value="bar">酒吧</option>
+                    <option value="fastfood">快餐</option>
+                </select>
+            </div>
+            
             <textarea id="placeNote" class="popup-textarea" 
                       placeholder="添加备注（可选）"></textarea>
             <div class="popup-actions">
@@ -1774,25 +1794,44 @@ function markAsWantToGo(lat, lng, address) {
 
 // 标记为去过
 function markAsVisited(lat, lng, address) {
-    // 移除搜索标记
     if (window.searchTempMarker) {
         map.removeLayer(window.searchTempMarker);
     }
     
-    // 切换到去过模式
     setMode('paw');
     
-    // 创建标记
     const tempMarker = L.marker([lat, lng], {
         icon: createCustomIcon('paw')
     }).addTo(map);
     
-    // 显示保存弹窗
+    // 处理地址中的特殊字符
+    const safeName = address.split(',')[0].replace(/'/g, '').replace(/"/g, '');
+    
     const popupContent = `
         <div class="popup-content">
             <div class="popup-title">标记去过的地方</div>
             <input type="text" id="placeName" class="popup-input" 
-                   value="${address.split(',')[0]}" placeholder="给这个地方起个名字...">
+                   value="${safeName}" placeholder="给这个地方起个名字...">
+            
+            <!-- 添加餐厅类型选择 -->
+            <div style="margin: 10px 0;">
+                <label style="font-size: 12px; color: #666;">选择类型：</label>
+                <select id="placeCategory" class="popup-input" style="width: 100%; padding: 8px;">
+                    <option value="other">其他</option>
+                    <option value="chinese">中餐</option>
+                    <option value="western">西餐</option>
+                    <option value="japanese">日料</option>
+                    <option value="korean">韩餐</option>
+                    <option value="cafe">咖啡店</option>
+                    <option value="dessert">甜品</option>
+                    <option value="hotpot">火锅</option>
+                    <option value="bbq">烧烤</option>
+                    <option value="tea">茶饮</option>
+                    <option value="bar">酒吧</option>
+                    <option value="fastfood">快餐</option>
+                </select>
+            </div>
+            
             <textarea id="placeNote" class="popup-textarea" 
                       placeholder="添加备注（可选）"></textarea>
             <div class="rating-stars" id="ratingStars">
