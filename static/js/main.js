@@ -19,6 +19,35 @@ const CUSTOM_ICONS = {
     pawFallback: '🐾'
 };
 
+// 地理范围定义
+const GEOGRAPHIC_RANGES = {
+    global: { name: '🌍 全球范围', bounds: null },
+    asia: { 
+        name: '🌏 亚洲', 
+        bounds: { minLat: -10, maxLat: 55, minLng: 60, maxLng: 150 }
+    },
+    northAmerica: { 
+        name: '🌎 北美', 
+        bounds: { minLat: 15, maxLat: 72, minLng: -168, maxLng: -52 }
+    },
+    usa: { 
+        name: '🇺🇸 美国', 
+        bounds: { minLat: 24, maxLat: 49, minLng: -125, maxLng: -66 }
+    },
+    china: { 
+        name: '🇨🇳 中国', 
+        bounds: { minLat: 18, maxLat: 54, minLng: 73, maxLng: 135 }
+    },
+    boston: { 
+        name: '📍 波士顿地区', 
+        bounds: { minLat: 42.2, maxLat: 42.5, minLng: -71.2, maxLng: -70.9 }
+    },
+    currentCity: {
+        name: '📍 当前城市范围',
+        bounds: null // 动态计算
+    }
+};
+
 // ========================================
 // 地图初始化
 // ========================================
@@ -1270,12 +1299,22 @@ function openGachapon() {
     // 获取所有分类
     const categories = [...new Set(heartPlaces.map(p => p.category || 'other'))];
     
+    // 获取当前地图中心，用于"当前城市"选项
+    const mapCenter = map.getCenter();
+    const currentBounds = {
+        minLat: mapCenter.lat - 0.15,
+        maxLat: mapCenter.lat + 0.15,
+        minLng: mapCenter.lng - 0.15,
+        maxLng: mapCenter.lng + 0.15
+    };
+    GEOGRAPHIC_RANGES.currentCity.bounds = currentBounds;
+    
     const modal = document.createElement('div');
     modal.className = 'modal';
     modal.style.display = 'block';
     modal.innerHTML = `
         <div class="modal-content" style="
-            max-width: 380px;
+            max-width: 420px;
             background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(10px);
             border: 2px solid rgba(240, 147, 251, 0.3);
@@ -1303,7 +1342,7 @@ function openGachapon() {
                          style="width: 230px; height: 288px;"
                          onerror="this.style.display='none'">
                     
-                    <!-- 扭蛋结果显示区 - 这部分很重要，不能删除 -->
+                    <!-- 扭蛋结果显示区 -->
                     <div id="capsuleResult" style="display: none; 
                                                    position: absolute; 
                                                    bottom: -25px; 
@@ -1315,28 +1354,56 @@ function openGachapon() {
                     </div>
                 </div>
                 
-                <!-- 选择范围 -->
+                <!-- 筛选选项 -->
                 <div style="margin: 15px 0;">
-                    <label style="color: #764ba2; font-size: 13px; font-weight: bold;">选择范围：</label>
-                    <select id="gachaponCategory" 
-                            style="
-                                padding: 6px 12px; 
-                                border-radius: 20px; 
-                                border: 2px solid rgba(240, 147, 251, 0.5);
-                                background: rgba(255, 255, 255, 0.7);
-                                color: #764ba2;
-                                cursor: pointer;
-                                font-size: 13px;
-                            ">
-                        <option value="all">🎲 所有想去的地方 (${heartPlaces.length})</option>
-                        ${categories.map(cat => {
-                            const count = heartPlaces.filter(p => (p.category || 'other') === cat).length;
-                            const name = RESTAURANT_TYPES[cat]?.name || '其他';
-                            return `<option value="${cat}">
-                                ${RESTAURANT_TYPES[cat]?.name || '其他'} (${count})
-                            </option>`;
-                        }).join('')}
-                    </select>
+                    <!-- 地理范围选择 -->
+                    <div style="margin-bottom: 10px;">
+                        <label style="color: #764ba2; font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">地理范围：</label>
+                        <select id="gachaponRange" 
+                                style="
+                                    width: 100%;
+                                    padding: 6px 12px; 
+                                    border-radius: 20px; 
+                                    border: 2px solid rgba(240, 147, 251, 0.5);
+                                    background: rgba(255, 255, 255, 0.7);
+                                    color: #764ba2;
+                                    cursor: pointer;
+                                    font-size: 13px;
+                                "
+                                onchange="updateGachaponCount()">
+                            ${Object.entries(GEOGRAPHIC_RANGES).map(([key, range]) => 
+                                `<option value="${key}">${range.name}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    
+                    <!-- 餐厅类型选择 -->
+                    <div>
+                        <label style="color: #764ba2; font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">餐厅类型：</label>
+                        <select id="gachaponCategory" 
+                                style="
+                                    width: 100%;
+                                    padding: 6px 12px; 
+                                    border-radius: 20px; 
+                                    border: 2px solid rgba(240, 147, 251, 0.5);
+                                    background: rgba(255, 255, 255, 0.7);
+                                    color: #764ba2;
+                                    cursor: pointer;
+                                    font-size: 13px;
+                                "
+                                onchange="updateGachaponCount()">
+                            <option value="all">🎲 所有类型</option>
+                            ${categories.map(cat => {
+                                const name = RESTAURANT_TYPES[cat]?.name || '其他';
+                                return `<option value="${cat}">${name}</option>`;
+                            }).join('')}
+                        </select>
+                    </div>
+                    
+                    <!-- 显示符合条件的数量 -->
+                    <div id="gachaponCount" style="margin-top: 10px; font-size: 12px; color: #999;">
+                        计算中...
+                    </div>
                 </div>
                 
                 <!-- 扭蛋按钮 -->
@@ -1387,15 +1454,59 @@ function openGachapon() {
     document.body.appendChild(modal);
     window.currentGachaponModal = modal;
     window.currentGachaponResult = null;
+    
+    // 初始化显示数量
+    setTimeout(() => updateGachaponCount(), 100);
+}
+
+function updateGachaponCount() {
+    const range = document.getElementById('gachaponRange').value;
+    const category = document.getElementById('gachaponCategory').value;
+    
+    let availablePlaces = allPlaces.filter(p => p.type === 'heart');
+    
+    // 地理范围筛选
+    if (range && range !== 'global') {
+        const bounds = GEOGRAPHIC_RANGES[range].bounds;
+        if (bounds) {
+            availablePlaces = availablePlaces.filter(p => 
+                p.lat >= bounds.minLat && p.lat <= bounds.maxLat &&
+                p.lng >= bounds.minLng && p.lng <= bounds.maxLng
+            );
+        }
+    }
+    
+    // 餐厅类型筛选
+    if (category !== 'all') {
+        availablePlaces = availablePlaces.filter(p => (p.category || 'other') === category);
+    }
+    
+    const countDiv = document.getElementById('gachaponCount');
+    if (countDiv) {
+        countDiv.textContent = `符合条件的地点：${availablePlaces.length} 个`;
+    }
 }
 
 // 扭蛋动画
 function spinGachapon() {
     if (isSpinning) return;
     
+    const range = document.getElementById('gachaponRange').value;
     const category = document.getElementById('gachaponCategory').value;
     let availablePlaces = allPlaces.filter(p => p.type === 'heart');
     
+    // 地理范围筛选
+    if (range && range !== 'global') {
+        const bounds = GEOGRAPHIC_RANGES[range].bounds;
+        if (bounds) {
+            availablePlaces = availablePlaces.filter(p => 
+                p.lat >= bounds.minLat && p.lat <= bounds.maxLat &&
+                p.lng >= bounds.minLng && p.lng <= bounds.maxLng
+            );
+        }
+    }
+    
+    // 餐厅类型筛选
     if (category !== 'all') {
         availablePlaces = availablePlaces.filter(p => (p.category || 'other') === category);
     }
@@ -1404,7 +1515,7 @@ function spinGachapon() {
         showGachaponEmpty();
         return;
     }
-    
+
     isSpinning = true;
     const spinButton = document.getElementById('spinButton');
     spinButton.disabled = true;
@@ -1994,3 +2105,4 @@ window.RESTAURANT_TYPES = RESTAURANT_TYPES;
 window.convertToVisited = convertToVisited;
 window.setConvertRating = setConvertRating;
 window.confirmConvert = confirmConvert;
+window.updateGachaponCount = updateGachaponCount;
